@@ -1,0 +1,19 @@
+# Claude Code interno
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Arduino / IDE
+*.elf
+*.bin
+*.map
+build/
+.arduino15/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini

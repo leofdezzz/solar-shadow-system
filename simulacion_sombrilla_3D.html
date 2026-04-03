@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Sombrilla Solar Autónoma · Simulación 3D</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#060a18; font-family:'Segoe UI', system-ui, sans-serif; overflow:hidden; color:#fff; }
+canvas { display:block; }
+
+/* ─── Panel izquierdo ─── */
+#panel-left {
+  position:fixed; top:14px; left:14px; z-index:20;
+  background:rgba(6,8,22,0.90); border:1px solid rgba(120,170,255,0.18);
+  border-radius:14px; padding:15px 18px; width:252px;
+  backdrop-filter:blur(14px);
+}
+#panel-left h1 { font-size:12.5px; font-weight:700; color:#90c4ff; letter-spacing:.5px; margin-bottom:10px; }
+
+.row { display:flex; justify-content:space-between; align-items:center;
+       font-size:11.5px; padding:3.5px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+.lbl { color:#6a80a0; }
+.val { font-weight:600; color:#ddeeff; }
+.val.yellow { color:#f9ca24; }
+.val.green  { color:#6bcb77; }
+.val.orange { color:#ff9944; }
+
+/* actuadores */
+.actuator { margin-top:9px; }
+.act-title { font-size:9.5px; color:#6a80a0; letter-spacing:.4px; margin-bottom:5px; text-transform:uppercase; }
+.act-row   { display:flex; align-items:center; gap:7px; margin:4px 0; }
+.act-icon  { font-size:13px; width:18px; text-align:center; flex-shrink:0; }
+.act-name  { font-size:10.5px; color:#8899bb; width:110px; flex-shrink:0; }
+.bar-bg    { flex:1; height:6px; background:rgba(255,255,255,0.08); border-radius:3px; }
+.bar-fill  { height:6px; border-radius:3px; transition:width .35s ease; }
+.act-val   { font-size:11px; font-weight:700; color:#ddeeff; width:40px; text-align:right; }
+
+/* cobertura */
+.cov-wrap  { margin-top:8px; }
+.cov-top   { display:flex; justify-content:space-between; font-size:11px; color:#6a80a0; margin-bottom:3px; }
+.cov-bg    { background:rgba(255,255,255,0.08); border-radius:4px; height:7px; }
+.cov-fill  { height:7px; border-radius:4px; transition:width .4s, background .4s; }
+
+/* ─── Panel derecho: mecanismo ─── */
+#panel-right {
+  position:fixed; top:14px; right:14px; z-index:20;
+  background:rgba(6,8,22,0.90); border:1px solid rgba(120,170,255,0.18);
+  border-radius:14px; padding:14px 16px; width:200px;
+  backdrop-filter:blur(14px); font-size:11px; line-height:1.6;
+}
+#panel-right h2 { font-size:11px; font-weight:700; color:#90c4ff; margin-bottom:8px; }
+#panel-right p  { color:#8090aa; margin-bottom:6px; }
+#panel-right strong { color:#ddeeff; }
+.formula { font-family:monospace; background:rgba(255,255,255,0.07);
+           border-radius:5px; padding:3px 7px; font-size:10.5px; color:#f9ca24;
+           margin:4px 0; display:block; }
+.insight { background:rgba(110,220,120,0.10); border-left:2px solid #6edc78;
+           padding:5px 8px; border-radius:4px; font-size:10.5px; color:#aae;
+           margin-top:6px; }
+
+/* ─── Controles ─── */
+#controls {
+  position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:20;
+  background:rgba(6,8,22,0.90); border:1px solid rgba(120,170,255,0.18);
+  border-radius:16px; padding:11px 22px; display:flex; align-items:center;
+  gap:18px; backdrop-filter:blur(14px); flex-wrap:wrap; justify-content:center;
+}
+.cg { display:flex; flex-direction:column; align-items:center; gap:3px; }
+.cg label { font-size:9.5px; color:#6a80a0; letter-spacing:.3px; }
+.cg input[type=range]  { width:185px; accent-color:#90c4ff; cursor:pointer; }
+.cg input[type=date],
+.cg select {
+  background:rgba(255,255,255,0.06); border:1px solid rgba(140,180,255,0.22);
+  color:#ddeeff; border-radius:7px; padding:4px 8px; font-size:11.5px; cursor:pointer;
+}
+.cg select option { background:#0e1228; }
+#t-disp { font-size:13px; font-weight:700; color:#f9ca24; min-width:50px; text-align:center; }
+#btn-play {
+  background:linear-gradient(135deg,#3356cc,#7040bb); border:none;
+  border-radius:8px; color:#fff; font-size:12px; font-weight:700;
+  padding:7px 16px; cursor:pointer; white-space:nowrap;
+}
+#btn-play:hover { filter:brightness(1.15); }
+#spd-sel {
+  background:rgba(255,255,255,0.06); border:1px solid rgba(140,180,255,0.22);
+  color:#ddeeff; border-radius:7px; padding:3px 6px; font-size:11px; cursor:pointer;
+}
+
+/* ─── Leyenda ─── */
+#legend {
+  position:fixed; bottom:90px; right:14px; z-index:20;
+  background:rgba(6,8,22,0.90); border:1px solid rgba(120,170,255,0.18);
+  border-radius:12px; padding:11px 14px; font-size:10.5px;
+  backdrop-filter:blur(14px);
+}
+#legend h3 { font-size:10.5px; color:#90c4ff; margin-bottom:7px; }
+.li { display:flex; align-items:center; gap:8px; color:#8090aa; margin:3px 0; }
+.ld { width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+.ll { width:14px; height:2px; flex-shrink:0; }
+.lr { width:11px; height:11px; border-radius:50%; border:2px solid #e74c3c; flex-shrink:0; }
+</style>
+</head>
+<body>
+
+<!-- Panel izquierdo -->
+<div id="panel-left">
+  <h1>☀ Sombrilla Solar Autónoma</h1>
+  <div class="row"><span class="lbl">📍 Ubicación</span><span class="val" id="loc-name">Madrid</span></div>
+  <div class="row"><span class="lbl">📅 Fecha</span><span class="val" id="v-date">—</span></div>
+  <div class="row"><span class="lbl">🕐 Hora local</span><span class="val yellow" id="v-time">—</span></div>
+  <div class="row"><span class="lbl">☀ Azimut solar</span><span class="val" id="v-az">—</span></div>
+  <div class="row"><span class="lbl">☀ Elevación solar</span><span class="val" id="v-el">—</span></div>
+
+  <div class="actuator">
+    <div class="act-title">Actuadores</div>
+
+    <div class="act-row">
+      <span class="act-icon">⚙</span>
+      <span class="act-name">Stepper · azimut</span>
+      <div class="bar-bg"><div class="bar-fill" id="b-step" style="background:#e74c3c"></div></div>
+      <span class="act-val" id="v-step">—</span>
+    </div>
+
+    <div class="act-row">
+      <span class="act-icon">↗</span>
+      <span class="act-name">Servo · inclinación</span>
+      <div class="bar-bg"><div class="bar-fill" id="b-srv" style="background:#2ecc71"></div></div>
+      <span class="act-val" id="v-srv">—</span>
+    </div>
+  </div>
+
+  <div class="cov-wrap">
+    <div class="cov-top">
+      <span>☂ Cobertura sobre objetivo</span>
+      <span id="v-cov" class="val green">—</span>
+    </div>
+    <div class="cov-bg"><div class="cov-fill" id="b-cov" style="width:0%;background:#6bcb77"></div></div>
+  </div>
+</div>
+
+<!-- Panel derecho -->
+<div id="panel-right">
+  <h2>🔧 Mecanismo</h2>
+  <p><strong>Stepper motor</strong> en la base: gira todo el brazo en azimut (0–360°).</p>
+  <p><strong>Servo</strong> en el eje horizontal: inclina el brazo hacia el sol.</p>
+  <span class="formula">inclinación = 90° − elevación_sol</span>
+  <p>La sombrilla en la punta queda <strong>perpendicular a los rayos</strong> → sombra máxima.</p>
+  <div class="insight">✅ Sombra siempre centrada en el objetivo con área = π·R²</div>
+</div>
+
+<!-- Leyenda -->
+<div id="legend">
+  <h3>Leyenda</h3>
+  <div class="li"><div class="ld" style="background:#f9ca24"></div> Sol</div>
+  <div class="li"><div class="ld" style="background:#4e9af1"></div> Sombrilla</div>
+  <div class="li"><div class="ld" style="background:#c8a060"></div> Brazo / poste</div>
+  <div class="li"><div class="ll" style="background:#ff9900;opacity:.7"></div> Rayo solar</div>
+  <div class="li"><div class="lr"></div> Zona objetivo (r=R)</div>
+  <div class="li"><div class="ld" style="background:rgba(50,50,70,.9);border:1px solid #444"></div> Sombra</div>
+</div>
+
+<!-- Controles -->
+<div id="controls">
+  <div class="cg">
+    <label>FECHA</label>
+    <input type="date" id="in-date" value="2026-04-02">
+  </div>
+  <div class="cg">
+    <label>UBICACIÓN</label>
+    <select id="in-loc">
+      <option value="40.4168,-3.7038,2,Madrid, España">Madrid, España</option>
+      <option value="51.5074,-0.1278,1,Londres, UK">Londres, UK</option>
+      <option value="40.7128,-74.006,-4,Nueva York, EEUU">Nueva York, EEUU</option>
+      <option value="35.6762,139.6503,9,Tokio, Japón">Tokio, Japón</option>
+      <option value="-33.8688,151.2093,10,Sídney, Australia">Sídney, Australia</option>
+      <option value="25.2048,55.2708,4,Dubái, EAU">Dubái, EAU</option>
+      <option value="-0.2295,-78.5243,-5,Quito, Ecuador">Quito, Ecuador</option>
+    </select>
+  </div>
+  <div class="cg">
+    <label>HORA (<span id="t-disp">8:00</span>)</label>
+    <input type="range" id="in-time" min="0" max="1439" value="480">
+  </div>
+  <button id="btn-play">▶ Play</button>
+  <div class="cg">
+    <label>VELOCIDAD</label>
+    <select id="spd-sel">
+      <option value="1">1×</option>
+      <option value="2">2×</option>
+      <option value="4" selected>4×</option>
+      <option value="8">8×</option>
+      <option value="20">20×</option>
+    </select>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+
+// ════════════════════════════════════════════════════════
+//  SOLAR POSITION ALGORITHM  (SPA simplificado, ±0.01°)
+// ════════════════════════════════════════════════════════
+function julianDay(Y,Mo,D,h,m,s){
+  if(Mo<=2){Y--;Mo+=12;}
+  const A=Math.floor(Y/100),B=2-A+Math.floor(A/4);
+  return Math.floor(365.25*(Y+4716))+Math.floor(30.6001*(Mo+1))+D+B-1524.5+(h+m/60+s/3600)/24;
+}
+function solarPos(latD,lonD,lh,lm,utcOff,Y,Mo,D){
+  let uh=lh-utcOff; const off=uh<0?-1:uh>=24?1:0;
+  const dd=new Date(Y,Mo-1,D+off); uh=((uh%24)+24)%24;
+  const JD=julianDay(dd.getFullYear(),dd.getMonth()+1,dd.getDate(),uh,lm,0);
+  const T=(JD-2451545)/36525;
+  const L0=((280.46646+36000.76983*T+3.032e-4*T*T)%360+360)%360;
+  const Ma=((357.52911+35999.05029*T-1.537e-4*T*T)%360+360)%360, Mr=Ma*Math.PI/180;
+  const C=(1.914602-4.817e-3*T-1.4e-5*T*T)*Math.sin(Mr)+(1.9993e-2-1.01e-4*T)*Math.sin(2*Mr)+2.89e-4*Math.sin(3*Mr);
+  const sl=L0+C, om=125.04-1934.136*T;
+  const al=(sl-5.69e-3-4.78e-3*Math.sin(om*Math.PI/180)), alR=al*Math.PI/180;
+  const obl=(23+(26+(21.448-T*(46.815+T*(5.9e-4-T*1.813e-3)))/60)/60)+2.56e-3*Math.cos(om*Math.PI/180), oblR=obl*Math.PI/180;
+  const RA=Math.atan2(Math.cos(oblR)*Math.sin(alR),Math.cos(alR)), RAdeg=((RA*180/Math.PI)%360+360)%360;
+  const decl=Math.asin(Math.sin(oblR)*Math.sin(alR));
+  const GMST=((280.46061837+360.98564736629*(JD-2451545)+3.87933e-4*T*T-T*T*T/38710000)%360+360)%360;
+  const LHA=((GMST+lonD-RAdeg)%360+360)%360, LHAr=LHA*Math.PI/180, latR=latD*Math.PI/180;
+  const sinEl=Math.sin(latR)*Math.sin(decl)+Math.cos(latR)*Math.cos(decl)*Math.cos(LHAr);
+  let el=Math.asin(Math.max(-1,Math.min(1,sinEl)))*180/Math.PI;
+  // refracción
+  if(el>85){}else if(el>5){const t=Math.tan(el*Math.PI/180);el+=(58.1/t-0.07/t**3+8.6e-5/t**5)/3600;}
+  else if(el>-0.575){el+=(1735+el*(-518.2+el*(103.4+el*(-12.79+el*0.711))))/3600;}
+  const Az=Math.atan2(Math.sin(LHAr),Math.cos(LHAr)*Math.sin(latR)-Math.tan(decl)*Math.cos(latR));
+  return{az:((Az*180/Math.PI)+180+360)%360, el};
+}
+
+// ════════════════════════════════════════════════════════
+//  RENDERER + SCENE
+// ════════════════════════════════════════════════════════
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x040810);
+scene.fog=new THREE.FogExp2(0x040810,0.026);
+
+const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,0.05,500);
+camera.position.set(3.4,2.6,3.4);
+camera.lookAt(0,0.5,0);
+
+// ── Luces ──
+scene.add(new THREE.AmbientLight(0x152030,2.5));
+const hemi=new THREE.HemisphereLight(0x336699,0x1a2e0a,0.7); scene.add(hemi);
+const sunL=new THREE.DirectionalLight(0xfff8e8,0);
+sunL.castShadow=true;
+Object.assign(sunL.shadow.mapSize,{width:2048,height:2048});
+Object.assign(sunL.shadow.camera,{near:.1,far:200,left:-7,right:7,top:7,bottom:-7});
+sunL.shadow.bias=-0.003; scene.add(sunL); scene.add(sunL.target);
+
+// ── Suelo ──
+const gnd=new THREE.Mesh(new THREE.PlaneGeometry(26,26),new THREE.MeshLambertMaterial({color:0x1a3410}));
+gnd.rotation.x=-Math.PI/2; gnd.receiveShadow=true; scene.add(gnd);
+const _grid=new THREE.GridHelper(26,52,0x203e12,0x0f2208); _grid.position.y=.002; scene.add(_grid);
+
+// ── Zona objetivo ──
+const R_UMB=0.5, R_TARGET=0.3, POLE_L=1.0;
+
+const tRing=new THREE.Mesh(
+  new THREE.RingGeometry(R_TARGET-.022,R_TARGET+.022,80),
+  new THREE.MeshBasicMaterial({color:0xe74c3c,side:THREE.DoubleSide})
+);
+tRing.rotation.x=-Math.PI/2; tRing.position.y=.005; scene.add(tRing);
+const tDot=new THREE.Mesh(
+  new THREE.CircleGeometry(.038,32),
+  new THREE.MeshBasicMaterial({color:0xe74c3c,side:THREE.DoubleSide})
+);
+tDot.rotation.x=-Math.PI/2; tDot.position.y=.006; scene.add(tDot);
+
+// ── BASE: cuerpo del stepper motor ──
+const baseGrp=new THREE.Group(); scene.add(baseGrp);
+// Cuerpo principal
+const _baseMesh=new THREE.Mesh(new THREE.CylinderGeometry(.065,.075,.07,24),new THREE.MeshLambertMaterial({color:0x2a2a44}));
+_baseMesh.position.y=.035; _baseMesh.castShadow=true; baseGrp.add(_baseMesh);
+// Collar giratorio (representa el eje del stepper)
+const stepperCollar=new THREE.Mesh(
+  new THREE.CylinderGeometry(.045,.045,.025,24),
+  new THREE.MeshLambertMaterial({color:0x4455aa})
+);
+stepperCollar.position.y=.083; scene.add(stepperCollar);
+
+// ── GRUPO QUE ROTA CON EL STEPPER (azimut) ──
+const azGrp=new THREE.Group(); scene.add(azGrp);
+
+// Brazo de unión (stepper→servo)
+const armBase=new THREE.Mesh(
+  new THREE.CylinderGeometry(.012,.012,.12,10),
+  new THREE.MeshLambertMaterial({color:0x556677})
+);
+armBase.position.y=.155; azGrp.add(armBase);
+
+// Cuerpo del servo (caja pequeña en el pivote)
+const servoBox=new THREE.Mesh(
+  new THREE.BoxGeometry(.055,.03,.04),
+  new THREE.MeshLambertMaterial({color:0x223366})
+);
+servoBox.position.y=.22; azGrp.add(servoBox);
+// Eje del servo
+const servoAxle=new THREE.Mesh(
+  new THREE.CylinderGeometry(.007,.007,.06,10),
+  new THREE.MeshLambertMaterial({color:0x8899cc})
+);
+servoAxle.rotation.z=Math.PI/2; servoAxle.position.set(0,.22,0); azGrp.add(servoAxle);
+
+// ── GRUPO QUE INCLINA EL BRAZO+SOMBRILLA (servo) ──
+//    Pivota desde el punto (0, 0.22, 0) en el eje X del azGrp
+const tiltGrp=new THREE.Group();
+tiltGrp.position.y=.22;
+azGrp.add(tiltGrp);
+
+// Brazo principal (poste)
+const armMesh=new THREE.Mesh(
+  new THREE.CylinderGeometry(.013,.018,POLE_L,12),
+  new THREE.MeshLambertMaterial({color:0xc8a060})
+);
+// Cilindro a lo largo de +Y, pero lo desplazamos para que parta desde y=0
+armMesh.position.y=POLE_L/2; armMesh.castShadow=true; tiltGrp.add(armMesh);
+
+// ── GRUPO DE LA SOMBRILLA (en la punta del brazo) ──
+const umbGrp=new THREE.Group();
+umbGrp.position.y=POLE_L;  // punta del brazo
+// Rotar -90° en X: el disco queda horizontal (en plano XZ) cuando el poste es vertical.
+// Al inclinar el poste hacia el sol, la normal del disco apunta al sol → ⊥ a los rayos.
+umbGrp.rotation.x=-Math.PI/2;
+tiltGrp.add(umbGrp);
+
+// Disco principal
+const umbMesh=new THREE.Mesh(
+  new THREE.CircleGeometry(R_UMB,56),
+  new THREE.MeshLambertMaterial({color:0x4e9af1,side:THREE.DoubleSide})
+);
+umbMesh.castShadow=true; umbGrp.add(umbMesh);
+
+// Varillas de la sombrilla (8 radios)
+const ribMat=new THREE.LineBasicMaterial({color:0xaaccff,transparent:true,opacity:.55});
+for(let i=0;i<8;i++){
+  const a=(i/8)*Math.PI*2;
+  const rg=new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0,0,0),
+    new THREE.Vector3(Math.cos(a)*R_UMB,Math.sin(a)*R_UMB,0)
+  ]);
+  umbGrp.add(new THREE.Line(rg,ribMat));
+}
+// Remate dorado
+umbGrp.add(new THREE.Mesh(new THREE.SphereGeometry(.021,8,8),new THREE.MeshLambertMaterial({color:0xffd700})));
+
+// ── SOL ──
+const sunMesh=new THREE.Mesh(
+  new THREE.SphereGeometry(1.5,32,32),
+  new THREE.MeshBasicMaterial({color:0xfff8a0})
+);
+scene.add(sunMesh);
+const haloMesh=new THREE.Mesh(
+  new THREE.CircleGeometry(2.6,64),
+  new THREE.MeshBasicMaterial({color:0xffee55,transparent:true,opacity:.13,side:THREE.DoubleSide})
+);
+scene.add(haloMesh);
+
+// ── RAYO SOLAR: origen → punta brazo → sol ──
+const rayPositions=new Float32Array(6);          // 2 puntos × 3 coords
+const rayGeo=new THREE.BufferGeometry();
+rayGeo.setAttribute('position',new THREE.BufferAttribute(rayPositions,3));
+const rayLine=new THREE.Line(rayGeo,new THREE.LineBasicMaterial({color:0xff9900,transparent:true,opacity:.4}));
+scene.add(rayLine);
+
+// ── SOMBRA EN EL SUELO ──
+// El disco es ⊥ a los rayos solares → proyección en el suelo = ELIPSE
+// semieje perpendicular al azimut = R_UMB, semieje en dirección del sol = R_UMB/sin(el)
+// La matriz se actualiza en update() cada frame.
+const shadowMesh=new THREE.Mesh(
+  new THREE.CircleGeometry(1,64),   // círculo unidad; escala aplicada via matrix
+  new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.4,side:THREE.DoubleSide,depthWrite:false})
+);
+shadowMesh.matrixAutoUpdate=false;
+scene.add(shadowMesh);
+
+// ── ESTRELLAS ──
+(()=>{
+  const v=[];
+  for(let i=0;i<1800;i++){
+    const r=180,t=Math.random()*Math.PI*2,p=Math.acos(2*Math.random()-1);
+    v.push(r*Math.sin(p)*Math.cos(t),r*Math.sin(p)*Math.sin(t),r*Math.cos(p));
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));
+  scene.add(new THREE.Points(g,new THREE.PointsMaterial({color:0xffffff,size:.28,sizeAttenuation:true})));
+})();
+
+// ════════════════════════════════════════════════════════
+//  CÁMARA ORBITAL
+// ════════════════════════════════════════════════════════
+let drag=false,lx=0,ly=0,cTheta=Math.PI/4.5,cPhi=.62,cDist=5.8;
+const cTgt=new THREE.Vector3(0,.45,0);
+function refreshCam(){
+  camera.position.set(
+    cTgt.x+cDist*Math.sin(cPhi)*Math.sin(cTheta),
+    cTgt.y+cDist*Math.cos(cPhi),
+    cTgt.z+cDist*Math.sin(cPhi)*Math.cos(cTheta)
+  ); camera.lookAt(cTgt);
+}
+refreshCam();
+const cv=renderer.domElement;
+cv.addEventListener('mousedown', e=>{drag=true;lx=e.clientX;ly=e.clientY;});
+cv.addEventListener('mousemove', e=>{if(!drag)return; cTheta+=(e.clientX-lx)*.005; cPhi=Math.max(.12,Math.min(1.52,cPhi+(e.clientY-ly)*.005)); lx=e.clientX;ly=e.clientY; refreshCam();});
+cv.addEventListener('mouseup',   ()=>drag=false);
+cv.addEventListener('wheel',     e=>{cDist=Math.max(1.5,Math.min(18,cDist+e.deltaY*.01));refreshCam();},{passive:true});
+cv.addEventListener('touchstart',e=>{drag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;});
+cv.addEventListener('touchmove', e=>{if(!drag)return;cTheta+=(e.touches[0].clientX-lx)*.005;cPhi=Math.max(.12,Math.min(1.52,cPhi+(e.touches[0].clientY-ly)*.005));lx=e.touches[0].clientX;ly=e.touches[0].clientY;refreshCam();e.preventDefault();},{passive:false});
+cv.addEventListener('touchend',  ()=>drag=false);
+
+// ════════════════════════════════════════════════════════
+//  ESTADO
+// ════════════════════════════════════════════════════════
+let simMin=480,playing=false,spd=4;
+let lat=40.4168,lon=-3.7038,utcOff=2,locName='Madrid, España';
+let sY=2026,sMo=4,sD=2;
+
+// helpers
+const _up=new THREE.Vector3(0,1,0);
+const _q =new THREE.Quaternion();
+const _v =new THREE.Vector3();
+const SUN_D=85;
+
+// ════════════════════════════════════════════════════════
+//  UPDATE  —  el corazón de la simulación
+// ════════════════════════════════════════════════════════
+function update(min){
+  const h=Math.floor(min/60), m=min%60;
+  const {az,el}=solarPos(lat,lon,h,m,utcOff,sY,sMo,sD);
+  const azR=az*Math.PI/180, elR=el*Math.PI/180;
+  const isDay=el>0.3;
+
+  /* ── Posición del sol en el cielo ── */
+  const sx= Math.sin(azR)*Math.cos(elR)*SUN_D;
+  const sy= Math.sin(elR)*SUN_D;
+  const sz=-Math.cos(azR)*Math.cos(elR)*SUN_D;
+  sunMesh.position.set(sx,sy,sz);
+  haloMesh.position.copy(sunMesh.position); haloMesh.lookAt(camera.position);
+  sunMesh.visible=haloMesh.visible=isDay||el>-3;
+
+  /* ── Cielo / niebla ── */
+  const tSky=Math.max(0,Math.min(1,(el+5)/30));
+  const skyCol=new THREE.Color(0x020406).lerp(new THREE.Color(0x091420),tSky);
+  scene.background=skyCol; scene.fog.color.copy(skyCol);
+  scene.children.find(c=>c.isPoints).visible=el<10;
+
+  /* ── Luz ── */
+  if(isDay){
+    sunL.intensity=Math.max(0,Math.sin(elR))*2.5;
+    sunL.position.set(sx,sy,sz); sunL.target.position.set(0,0,0);
+    sunL.color.set(el<12?0xff8844:0xfff8e8);
+    hemi.intensity=.2+Math.sin(elR)*.65;
+  } else {
+    sunL.intensity=0; hemi.intensity=.15;
+  }
+
+  /* ════════════════════════════════════════════════
+     MECANISMO:  stepper (azimut)  +  servo (inclinación)
+     ════════════════════════════════════════════════
+     El brazo apunta directamente al sol.
+     Dirección al sol desde origen: (cos(el)·sin(az), sin(el), -cos(el)·cos(az))
+
+     Cinemática:
+       1. azGrp rota en Y  →  stepper_angle = az
+       2. tiltGrp rota en X  →  servo_angle = 90° - el   (desde vertical)
+
+     La sombrilla (umbGrp) en la punta queda perpendicular al brazo,
+     es decir, su normal apunta hacia el sol → máxima sombra.
+  ════════════════════════════════════════════════ */
+  if(isDay){
+    const stepperAngle=az;                       // grados — stepper azimut
+    const servoAngle  =Math.min(87,90-el);       // grados — servo inclinación
+
+    // 1. Stepper: rota azGrp alrededor de Y
+    //    Nota: Three.js Y-up, Norte = -Z, Este = +X
+    //    Para que el brazo apunte hacia az: rotation.y = -azR  (sentido horario visto desde arriba)
+    azGrp.rotation.y = -azR;
+
+    // 2. Servo: inclina tiltGrp alrededor de X (eje perpendicular al azimut)
+    //    inclinación 0° = brazo vertical; inclinación = 90°-el = brazo apunta al sol
+    tiltGrp.rotation.x = -servoAngle*Math.PI/180;
+
+    // La sombrilla en la punta de tiltGrp hereda la orientación del brazo.
+    // El brazo apunta al sol → la circunferencia (XY plane del umbGrp) queda ⊥ al rayo solar.
+    // No se necesita rotación adicional de umbGrp.
+
+    /* ── Punta del brazo en espacio mundo ── */
+    const tipWorld=new THREE.Vector3(0,POLE_L,0);
+    tiltGrp.updateWorldMatrix(true,false);
+    tiltGrp.localToWorld(tipWorld);
+
+    /* ── Rayo solar: desde el sol, pasando por la punta del brazo, hasta la sombra ── */
+    const rp=rayGeo.attributes.position;
+    rp.setXYZ(0, sx*1.06, sy*1.06, sz*1.06);  // más allá del sol
+    rp.setXYZ(1, 0, 0.005, 0);                // sombra en el suelo
+    rp.needsUpdate=true;
+    rayLine.visible=true;
+    rayLine.material.opacity=Math.min(.5,.1+Math.sin(elR)*.42);
+
+    /* ── Sombra elíptica ──
+       El disco es ⊥ a los rayos → proyección en el suelo es ELIPSE:
+         semieje 1 (⊥ azimut)     = R_UMB
+         semieje 2 (dir. del sol) = R_UMB / sin(el)
+       Columnas de la matrix (row-major en Three.js set()):
+         col1 = dirección ⊥az en XZ * R_UMB    = (cosAz, 0, sinAz) * R_UMB
+         col2 = dirección del sol en XZ * sb    = (sinAz, 0, -cosAz) * sb
+         col3 = normal hacia arriba (no importa visualmente)
+         col4 = translación al centro de la sombra (origen)
+    */
+    {
+      const sEl=Math.max(0.07,Math.sin(elR));
+      const cAz=Math.cos(azR), sAz=Math.sin(azR);
+      const sa=R_UMB, sb=Math.min(R_UMB/sEl, R_UMB*7);
+      shadowMesh.matrix.set(
+        sa*cAz,  sb*sAz,  0,  0,
+        0,       0,       1,  0.007,
+        sa*sAz,  -sb*cAz, 0,  0,
+        0,       0,       0,  1
+      );
+    }
+    shadowMesh.visible=true;
+    shadowMesh.material.opacity=Math.min(.52,.1+Math.sin(elR)*.42);
+
+    /* ── UI ── */
+    const cov=100;
+    $('#v-step').textContent=`${stepperAngle.toFixed(1)}°`;
+    $('#b-step').style.width=`${stepperAngle/360*100}%`;
+    $('#v-srv' ).textContent=`${servoAngle.toFixed(1)}°`;
+    $('#b-srv' ).style.width=`${servoAngle/90*100}%`;
+    $('#v-cov' ).textContent=`${cov}%`;
+    $('#v-cov' ).className='val green';
+    $('#b-cov' ).style.width='100%';
+    $('#b-cov' ).style.background='#6bcb77';
+
+  } else {
+    /* Noche: brazo vertical, sombrilla horizontal arriba */
+    azGrp.rotation.y=0;
+    tiltGrp.rotation.x=0;
+    shadowMesh.visible=false;
+    rayLine.visible=false;
+    ['#v-step','#v-srv'].forEach(id=>$(id).textContent='—');
+    ['#b-step','#b-srv'].forEach(id=>$(id).style.width='0%');
+    $('#v-cov').textContent='Noche';
+    $('#v-cov').className='val orange';
+    $('#b-cov').style.width='0%';
+  }
+
+  /* ── Labels comunes ── */
+  const hh=String(h).padStart(2,'0'), mm2=String(m).padStart(2,'0');
+  $('#v-time').textContent=`${hh}:${mm2}h`;
+  $('#t-disp').textContent=`${hh}:${mm2}`;
+  $('#v-date').textContent=`${String(sD).padStart(2,'0')}/${String(sMo).padStart(2,'0')}/${sY}`;
+  $('#v-az').textContent=isDay?`${az.toFixed(1)}°`:'Bajo horizonte';
+  $('#v-el').textContent=`${el.toFixed(1)}°`;
+}
+
+function $(s){return document.querySelector(s);}
+
+// ════════════════════════════════════════════════════════
+//  CONTROLES UI
+// ════════════════════════════════════════════════════════
+$('#in-time').addEventListener('input',e=>{simMin=+e.target.value; update(simMin);});
+$('#btn-play').addEventListener('click',()=>{playing=!playing; $('#btn-play').textContent=playing?'⏸ Pausa':'▶ Play';});
+$('#spd-sel' ).addEventListener('change',e=>spd=+e.target.value);
+$('#in-date' ).addEventListener('change',e=>{const p=e.target.value.split('-');sY=+p[0];sMo=+p[1];sD=+p[2];update(simMin);});
+$('#in-loc'  ).addEventListener('change',e=>{
+  const p=e.target.value.split(',');lat=+p[0];lon=+p[1];utcOff=+p[2];locName=p[3];
+  $('#loc-name').textContent=locName; update(simMin);
+});
+
+// ════════════════════════════════════════════════════════
+//  LOOP
+// ════════════════════════════════════════════════════════
+let lastT=0; const MS_PER_MIN=250;
+function loop(ts){
+  requestAnimationFrame(loop);
+  if(playing && ts-lastT>MS_PER_MIN/spd){
+    simMin=(simMin+1)%1440;
+    $('#in-time').value=simMin;
+    update(simMin);
+    lastT=ts;
+  }
+  renderer.render(scene,camera);
+}
+update(simMin);
+loop(0);
+
+window.addEventListener('resize',()=>{
+  renderer.setSize(innerWidth,innerHeight);
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  refreshCam();
+});
+</script>
+</body>
+</html>
